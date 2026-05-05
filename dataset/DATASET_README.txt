@@ -15,11 +15,15 @@ Populate nested clips to match manifest paths, then materialize:
   ...
 
 Then run:
-  python soccer_event_model/dataset/materialize_from_manifest.py
+  python dataset/materialize_from_manifest.py
 
-That copies each file to videos/<stem>.mp4 and refreshes labels/ + split lists.
+That copies each file to videos/<stem>.mp4, writes labels/, and refreshes train.txt / valid.txt.
+Split lists only name stems that actually have a video file under videos/ (missing sources are skipped).
+
+If labels are already materialized but train.txt lists missing clips, run:
+  python dataset/materialize_from_manifest.py --sync-splits
 
 Train:
-  python soccer_event_model/train.py --data_root soccer_event_model/dataset --split train.txt
+  python train.py --data_root dataset --split train.txt
 
 Frame indices in the original JSON are converted with time_sec = frame / 25.

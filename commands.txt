@@ -1,0 +1,2 @@
+==============Train =======================
+python train.py --data_root dataset --split train.txt
