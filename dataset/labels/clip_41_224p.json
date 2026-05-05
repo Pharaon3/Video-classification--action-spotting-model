@@ -1,0 +1,80 @@
+{
+  "events": [
+    {
+      "time_sec": 1.32,
+      "label": "pass"
+    },
+    {
+      "time_sec": 2.6,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 3.76,
+      "label": "pass"
+    },
+    {
+      "time_sec": 5.08,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 6.44,
+      "label": "pass"
+    },
+    {
+      "time_sec": 9.12,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 10.48,
+      "label": "tackle"
+    },
+    {
+      "time_sec": 12.0,
+      "label": "pass"
+    },
+    {
+      "time_sec": 13.4,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 16.0,
+      "label": "pass"
+    },
+    {
+      "time_sec": 16.8,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 16.8,
+      "label": "pass"
+    },
+    {
+      "time_sec": 19.24,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 19.24,
+      "label": "pass"
+    },
+    {
+      "time_sec": 20.8,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 20.8,
+      "label": "pass"
+    },
+    {
+      "time_sec": 23.32,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 25.44,
+      "label": "pass"
+    },
+    {
+      "time_sec": 28.76,
+      "label": "pass_received"
+    }
+  ]
+}

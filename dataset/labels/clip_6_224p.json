@@ -1,0 +1,48 @@
+{
+  "events": [
+    {
+      "time_sec": 0.6,
+      "label": "shot"
+    },
+    {
+      "time_sec": 1.44,
+      "label": "block"
+    },
+    {
+      "time_sec": 5.44,
+      "label": "ball_out_of_play"
+    },
+    {
+      "time_sec": 13.6,
+      "label": "pass"
+    },
+    {
+      "time_sec": 15.32,
+      "label": "pass"
+    },
+    {
+      "time_sec": 16.48,
+      "label": "pass"
+    },
+    {
+      "time_sec": 17.6,
+      "label": "block"
+    },
+    {
+      "time_sec": 21.48,
+      "label": "pass"
+    },
+    {
+      "time_sec": 24.16,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 26.72,
+      "label": "pass"
+    },
+    {
+      "time_sec": 27.96,
+      "label": "pass_received"
+    }
+  ]
+}

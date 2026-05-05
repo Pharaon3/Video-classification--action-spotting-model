@@ -1,0 +1,84 @@
+{
+  "events": [
+    {
+      "time_sec": 0.12,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 1.36,
+      "label": "pass"
+    },
+    {
+      "time_sec": 1.92,
+      "label": "interception"
+    },
+    {
+      "time_sec": 2.88,
+      "label": "pass"
+    },
+    {
+      "time_sec": 3.44,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 10.68,
+      "label": "pass"
+    },
+    {
+      "time_sec": 14.08,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 16.32,
+      "label": "pass"
+    },
+    {
+      "time_sec": 17.44,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 18.84,
+      "label": "pass"
+    },
+    {
+      "time_sec": 20.44,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 21.16,
+      "label": "pass"
+    },
+    {
+      "time_sec": 22.16,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 22.16,
+      "label": "pass"
+    },
+    {
+      "time_sec": 23.6,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 24.96,
+      "label": "pass"
+    },
+    {
+      "time_sec": 25.92,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 26.88,
+      "label": "pass"
+    },
+    {
+      "time_sec": 28.0,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 28.92,
+      "label": "pass"
+    }
+  ]
+}

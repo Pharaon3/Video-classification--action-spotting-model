@@ -1,0 +1,72 @@
+{
+  "events": [
+    {
+      "time_sec": 1.24,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 2.32,
+      "label": "pass"
+    },
+    {
+      "time_sec": 3.44,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 8.6,
+      "label": "pass"
+    },
+    {
+      "time_sec": 9.76,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 11.2,
+      "label": "pass"
+    },
+    {
+      "time_sec": 14.0,
+      "label": "aerial_duel"
+    },
+    {
+      "time_sec": 14.0,
+      "label": "pass"
+    },
+    {
+      "time_sec": 14.72,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 18.16,
+      "label": "pass"
+    },
+    {
+      "time_sec": 20.04,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 20.04,
+      "label": "pass"
+    },
+    {
+      "time_sec": 21.76,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 22.6,
+      "label": "pass"
+    },
+    {
+      "time_sec": 24.0,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 27.64,
+      "label": "pass"
+    },
+    {
+      "time_sec": 29.04,
+      "label": "pass_received"
+    }
+  ]
+}

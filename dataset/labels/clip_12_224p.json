@@ -1,0 +1,84 @@
+{
+  "events": [
+    {
+      "time_sec": 1.36,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 2.4,
+      "label": "pass"
+    },
+    {
+      "time_sec": 3.92,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 6.08,
+      "label": "pass"
+    },
+    {
+      "time_sec": 7.0,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 8.08,
+      "label": "pass"
+    },
+    {
+      "time_sec": 8.84,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 10.08,
+      "label": "pass"
+    },
+    {
+      "time_sec": 12.0,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 13.8,
+      "label": "pass"
+    },
+    {
+      "time_sec": 15.56,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 17.16,
+      "label": "pass"
+    },
+    {
+      "time_sec": 18.0,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 23.04,
+      "label": "pass"
+    },
+    {
+      "time_sec": 24.08,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 25.28,
+      "label": "pass"
+    },
+    {
+      "time_sec": 27.16,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 28.08,
+      "label": "shot"
+    },
+    {
+      "time_sec": 28.32,
+      "label": "block"
+    },
+    {
+      "time_sec": 29.52,
+      "label": "recovery"
+    }
+  ]
+}
