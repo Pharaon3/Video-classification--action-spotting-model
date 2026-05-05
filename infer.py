@@ -1,5 +1,9 @@
 """
 Run event detection on a single video clip and write JSON predictions.
+
+Config: weights and architecture come from the checkpoint. If --config is
+omitted, threshold / activation / multi_label / min_event_gap_sec are merged
+from ./config.yaml when present so tuning edits apply without retraining.
 """
 
 from __future__ import annotations
@@ -10,6 +14,7 @@ import sys
 from pathlib import Path
 from typing import Any, Dict
 
+import numpy as np
 import torch
 import yaml
 
@@ -18,7 +23,7 @@ if str(_PKG) not in sys.path:
     sys.path.insert(0, str(_PKG))
 
 from models.event_model import build_event_model
-from postprocess import PostprocessConfig, postprocess_clip
+from postprocess import PostprocessConfig, logits_to_probs, postprocess_clip
 from utils.checkpoint import load_checkpoint
 from utils.video import VideoPreprocessConfig, preprocess_clip_to_tensor
 
@@ -42,10 +47,20 @@ def main() -> None:
     args = parser.parse_args()
 
     ckpt = load_checkpoint(args.checkpoint, map_location="cpu")
-    cfg: Dict[str, Any] = ckpt.get("config") or {}
+    cfg: Dict[str, Any] = dict(ckpt.get("config") or {})
     if args.config:
         override = load_yaml(Path(args.config))
         cfg.update(override)
+    else:
+        # Postprocess tuning (threshold, etc.) lives at the top level of config.yaml.
+        # Checkpoints embed a snapshot from training; merge repo config.yaml so edits
+        # there affect infer without having to pass --config every time.
+        disk_cfg = _PKG / "config.yaml"
+        if disk_cfg.is_file():
+            disk = load_yaml(disk_cfg)
+            for key in ("threshold", "min_event_gap_sec", "activation", "multi_label"):
+                if key in disk:
+                    cfg[key] = disk[key]
 
     if not cfg:
         raise RuntimeError("No config in checkpoint; pass --config path/to/config.yaml")
@@ -68,15 +83,41 @@ def main() -> None:
     with torch.inference_mode():
         logits = model(clip)  # [1,T,C]
 
+    activation = str(cfg.get("activation", "sigmoid"))
+    threshold = float(cfg.get("threshold", 0.5))
     pp_cfg = PostprocessConfig(
         fps=float(cfg["fps"]),
-        activation=str(cfg.get("activation", "sigmoid")),  # type: ignore[arg-type]
-        threshold=float(cfg.get("threshold", 0.5)),
+        activation=activation,  # type: ignore[arg-type]
+        threshold=threshold,
         min_event_gap_sec=float(cfg.get("min_event_gap_sec", 1.0)),
         class_names=list(cfg["class_names"]),
         multi_label=bool(cfg.get("multi_label", True)),
     )
+    print(
+        f"Inference postprocess: activation={activation} multi_label={pp_cfg.multi_label} "
+        f"threshold={threshold} min_event_gap_sec={pp_cfg.min_event_gap_sec}",
+        file=sys.stderr,
+    )
     events = postprocess_clip(logits, pp_cfg)
+    if not events:
+        probs = logits_to_probs(logits, activation)
+        arr = probs.detach().float().cpu().numpy()
+        finite = np.isfinite(arr)
+        n_nan = int(np.size(arr) - np.sum(finite))
+        if np.any(finite):
+            arr_f = arr[finite]
+            print(
+                f"No events above threshold={threshold}. "
+                f"sigmoid(prob) min={float(arr_f.min()):.6f} max={float(arr_f.max()):.6f} "
+                f"(finite values); NaN count={n_nan}",
+                file=sys.stderr,
+            )
+        else:
+            print(
+                f"No events: all probabilities are non-finite (NaN/Inf). NaN count={n_nan}. "
+                f"Check checkpoint / training stability.",
+                file=sys.stderr,
+            )
     # Stable JSON: round floats lightly
     for e in events:
         e["time"] = round(float(e["time"]), 4)

@@ -5,6 +5,6 @@ CUDA_VISIBLE_DEVICES=0 python3 train.py --data_root dataset --split train.txt
 
 =============Infer=====================
 CUDA_VISIBLE_DEVICES=0 python3 infer.py \
---video "./dataset/videos/clip_98/224p.mp4" \
+--video "./dataset/videos/clip_4/224p.mp4" \
 --checkpoint "./checkpoints/last.pt" \
 --output "./predictions.json"
