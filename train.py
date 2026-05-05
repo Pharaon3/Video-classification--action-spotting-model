@@ -2,6 +2,12 @@
 Train temporal stack + prediction head on fixed-length clips.
 
 Feature extractor is frozen by default (config: freeze_feature_extractor).
+
+Data: clips are loaded in batches (training.batch_size). Each optimizer step
+processes one batch of up to batch_size videos stacked as [B,T,3,H,W].
+
+Logging: training.log_each_step (default true) prints loss and video paths
+after every batch. Set log_each_step: false and tune log_every for sparser logs.
 """
 
 from __future__ import annotations
@@ -48,7 +54,13 @@ def train_one_epoch(
 ) -> float:
     model.train()
     multi_label = bool(cfg.get("multi_label", True))
-    log_every = int(cfg.get("training", {}).get("log_every", 10))
+    tcfg = cfg.get("training", {})
+    log_every = max(1, int(tcfg.get("log_every", 10)))
+    log_each_step = bool(tcfg.get("log_each_step", True))
+    num_batches = len(loader)
+    bs = getattr(loader, "batch_size", None)
+    print(f"epoch {epoch}: {num_batches} batches (batch_size={bs})")
+
     running = 0.0
     n = 0
 
@@ -68,8 +80,14 @@ def train_one_epoch(
 
         running += float(loss.item())
         n += 1
-        if step % log_every == 0:
-            print(f"epoch {epoch} step {step} loss {loss.item():.4f}")
+        should_log = log_each_step or (step % log_every == 0)
+        if should_log:
+            paths = batch.get("video_path", [])
+            path_str = "; ".join(str(p) for p in paths) if paths else ""
+            print(
+                f"epoch {epoch} step {step + 1}/{num_batches} "
+                f"loss {loss.item():.4f} | {path_str}"
+            )
 
     return running / max(n, 1)
 
