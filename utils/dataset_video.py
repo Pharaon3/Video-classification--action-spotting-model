@@ -3,7 +3,8 @@ Resolve clip video paths for SoccerClipDataset.
 
 Supports:
   - Flat layout: {data_root}/videos/{stem}.mp4 (and other common extensions)
-  - Nested manifest paths: {data_root}/{path_from_train.json} e.g. clip_4/224p.mp4
+  - Nested manifest path at dataset root: {data_root}/{path} e.g. clip_4/224p.mp4
+  - Nested manifest path under videos: {data_root}/videos/{path} e.g. videos/clip_4/224p.mp4
 """
 
 from __future__ import annotations
@@ -49,7 +50,7 @@ def resolve_clip_video_path(
     """
     Return an existing video file path for this label stem, or None.
 
-    Order: flat videos_dir first, then nested path from manifest if train.json/valid.json exist.
+    Order: flat videos_dir first, then {data_root}/{rel}, then {videos_dir}/{rel}.
     """
     for ext in VIDEO_EXTS:
         flat = videos_dir / f"{stem}{ext}"
@@ -60,7 +61,10 @@ def resolve_clip_video_path(
     if not rel:
         return None
     rel_norm = str(rel).replace("\\", "/")
-    nested = data_root / rel_norm
-    if nested.is_file():
-        return nested
+    nested_root = data_root / rel_norm
+    if nested_root.is_file():
+        return nested_root
+    nested_videos = videos_dir / rel_norm
+    if nested_videos.is_file():
+        return nested_videos
     return None

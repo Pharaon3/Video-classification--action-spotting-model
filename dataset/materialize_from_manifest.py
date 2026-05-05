@@ -6,9 +6,10 @@ Creates:
   labels/<stem>.json  ({"events": [{"time_sec", "label"}, ...]})
   train.txt / valid.txt  (basenames for train.py --split — only stems with a resolvable video)
 
-A video counts as present if either:
-  - dataset/videos/<stem>.<ext> exists, or
-  - the nested manifest file exists (e.g. dataset/clip_4/224p.mp4)
+A video counts as present if any of:
+  - dataset/videos/<stem>.<ext>
+  - dataset/<manifest_path> (e.g. clip_4/224p.mp4)
+  - dataset/videos/<manifest_path> (e.g. videos/clip_4/224p.mp4)
 
 Run:
   python dataset/materialize_from_manifest.py
@@ -72,20 +73,23 @@ def materialize(
             json.dumps({"events": events}, indent=2),
             encoding="utf-8",
         )
-        src = HERE / rel
+        rel_norm = str(rel).replace("\\", "/")
         dst = videos / f"{stem}.mp4"
-        if src.is_file():
-            shutil.copy2(src, dst)
+        # Copy only from dataset-root nested layout into flat videos/; clips already at
+        # videos/<rel> are used in place (no duplicate flat file).
+        root_nested = HERE / rel_norm
+        if root_nested.is_file() and root_nested.resolve() != dst.resolve():
+            shutil.copy2(root_nested, dst)
         if resolve_clip_video_path(HERE, stem, videos, stem_rel_map) is not None:
             stems_out.append(stem)
         else:
             try:
-                hint = src.relative_to(HERE)
+                hint = (HERE / rel_norm).relative_to(HERE)
             except ValueError:
-                hint = src
+                hint = HERE / rel_norm
             print(
                 f"materialize: omitted from split lists (no video): stem={stem!r} "
-                f"(add flat file under {videos} or nested file at {hint})",
+                f"(add flat under {videos}, or nested {hint} or {videos / rel_norm})",
                 file=sys.stderr,
             )
     return stems_out
@@ -142,11 +146,11 @@ def main() -> None:
         (HERE / "valid.txt").write_text("\n".join(valid_stems) + "\n", encoding="utf-8")
 
     n_flat = len(list((HERE / "videos").glob("*.mp4")))
-    n_nested = sum(
-        1
-        for rel in stem_rel_map.values()
-        if (HERE / str(rel).replace("\\", "/")).is_file()
-    )
+    def _nested_clip_exists(rel: str) -> bool:
+        r = str(rel).replace("\\", "/")
+        return (HERE / r).is_file() or ((HERE / "videos") / r).is_file()
+
+    n_nested = sum(1 for rel in stem_rel_map.values() if _nested_clip_exists(rel))
     n_lbl = len(list((HERE / "labels").glob("*.json")))
     print(f"Labels: {n_lbl} files.")
     print(f"Videos (flat under videos/): {n_flat} .mp4")

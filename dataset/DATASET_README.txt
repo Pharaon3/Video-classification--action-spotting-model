@@ -1,18 +1,17 @@
 Layout for soccer_event_model/train.py (unchanged):
 
   dataset/
-    videos/          <- optional flat copies: <stem>.mp4 (same stem as labels/*.json)
-    clip_*/224p.mp4  <- nested paths from train.json / valid.json also work (no copy required)
+    videos/          <- flat <stem>.mp4 and/or nested <manifest_path> (e.g. videos/clip_4/224p.mp4)
     labels/          <- {"events":[{"time_sec", "label"}, ...]}  (from train/valid manifests)
     train.txt        <- basenames for --split train.txt
     valid.txt        <- basenames for --split valid.txt
     train.json       <- original manifest (optional archive)
     valid.json
 
-Populate nested clips to match manifest paths, then materialize:
+Put clips either next to the manifest path under the dataset root, or under videos/:
 
   dataset/clip_4/224p.mp4
-  dataset/clip_6/224p.mp4
+  dataset/videos/clip_4/224p.mp4
   ...
 
 Then run:

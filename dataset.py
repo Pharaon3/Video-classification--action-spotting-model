@@ -56,6 +56,11 @@ class SoccerClipDataset(Dataset):
         if split:
             split_file = self.root / split
             stems = [s.strip() for s in split_file.read_text(encoding="utf-8").splitlines() if s.strip()]
+            if not stems:
+                raise RuntimeError(
+                    f"Split file {split_file} is empty. Run `python dataset/materialize_from_manifest.py` "
+                    f"to rebuild train.txt from your videos, or list one stem per line."
+                )
             self.items = [self._resolve_item(stem) for stem in stems]
         else:
             exts = {".mp4", ".avi", ".mkv", ".mov", ".webm"}
@@ -95,10 +100,13 @@ class SoccerClipDataset(Dataset):
         vp = resolve_clip_video_path(self.root, stem, self.video_dir, self._stem_to_rel)
         if vp is None:
             rel = self._stem_to_rel.get(stem)
-            hint = f" or manifest path {self.root / rel}" if rel else ""
-            raise FileNotFoundError(
-                f"No video for stem '{stem}' under {self.video_dir}{hint}"
-            )
+            hints: list[str] = []
+            if rel:
+                r = str(rel).replace("\\", "/")
+                hints.append(str(self.root / r))
+                hints.append(str(self.video_dir / r))
+            hint = f" (tried: {'; '.join(hints)})" if hints else ""
+            raise FileNotFoundError(f"No video for stem '{stem}'{hint}")
         return vp, lp
 
     def __len__(self) -> int:
