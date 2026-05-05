@@ -6,14 +6,18 @@ Feature extractor is frozen by default (config: freeze_feature_extractor).
 Data: clips are loaded in batches (training.batch_size). Each optimizer step
 processes one batch of up to batch_size videos stacked as [B,T,3,H,W].
 
-Logging: training.log_each_step (default true) prints loss and video paths
+Logging: training.log_each_step (default true) logs loss and video paths
 after every batch. Set log_each_step: false and tune log_every for sparser logs.
+
+Progress: training.progress_bar (default true) shows a tqdm bar per epoch
+(requires `pip install tqdm`, listed in requirements.txt).
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -21,6 +25,13 @@ import torch
 import torch.nn.functional as F
 import yaml
 from torch.utils.data import DataLoader
+
+try:
+    from tqdm.auto import tqdm as tqdm_auto
+except ImportError:  # pragma: no cover
+    tqdm_auto = None  # type: ignore[misc, assignment]
+
+_TQDM_MISSING_NOTIFIED = False
 
 # Allow `python path/to/train.py` from any working directory
 _PKG = Path(__file__).resolve().parent
@@ -51,43 +62,75 @@ def train_one_epoch(
     device: torch.device,
     cfg: Dict[str, Any],
     epoch: int,
+    num_epochs: int,
 ) -> float:
+    global _TQDM_MISSING_NOTIFIED
     model.train()
     multi_label = bool(cfg.get("multi_label", True))
     tcfg = cfg.get("training", {})
     log_every = max(1, int(tcfg.get("log_every", 10)))
     log_each_step = bool(tcfg.get("log_each_step", True))
+    want_pbar = bool(tcfg.get("progress_bar", True))
+    use_pbar = want_pbar and tqdm_auto is not None
+    if want_pbar and tqdm_auto is None and not _TQDM_MISSING_NOTIFIED:
+        print(
+            "tqdm is not installed; run `pip install tqdm` for epoch progress bars.",
+            file=sys.stderr,
+        )
+        _TQDM_MISSING_NOTIFIED = True
+
     num_batches = len(loader)
     bs = getattr(loader, "batch_size", None)
-    print(f"epoch {epoch}: {num_batches} batches (batch_size={bs})")
+
+    pbar_ctx: Any
+    if use_pbar:
+        pbar_ctx = tqdm_auto(
+            loader,
+            desc=f"Epoch {epoch}/{num_epochs}",
+            total=num_batches,
+            unit="batch",
+            dynamic_ncols=True,
+            leave=True,
+        )
+    else:
+        pbar_ctx = nullcontext(loader)
+        print(f"epoch {epoch}/{num_epochs}: {num_batches} batches (batch_size={bs})")
 
     running = 0.0
     n = 0
 
-    for step, batch in enumerate(loader):
-        x = batch["video"].to(device)
-        y = batch["labels"].to(device)
-        optimizer.zero_grad(set_to_none=True)
-        logits = model(x)  # [B,T,C]
+    with pbar_ctx as iterator:
+        for step, batch in enumerate(iterator):
+            x = batch["video"].to(device)
+            y = batch["labels"].to(device)
+            optimizer.zero_grad(set_to_none=True)
+            logits = model(x)  # [B,T,C]
 
-        if multi_label:
-            loss = F.binary_cross_entropy_with_logits(logits, y)
-        else:
-            loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
+            if multi_label:
+                loss = F.binary_cross_entropy_with_logits(logits, y)
+            else:
+                loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
 
-        loss.backward()
-        optimizer.step()
+            loss.backward()
+            optimizer.step()
 
-        running += float(loss.item())
-        n += 1
-        should_log = log_each_step or (step % log_every == 0)
-        if should_log:
-            paths = batch.get("video_path", [])
-            path_str = "; ".join(str(p) for p in paths) if paths else ""
-            print(
-                f"epoch {epoch} step {step + 1}/{num_batches} "
-                f"loss {loss.item():.4f} | {path_str}"
-            )
+            running += float(loss.item())
+            n += 1
+            if use_pbar:
+                iterator.set_postfix(loss=f"{loss.item():.4f}")
+
+            should_log = log_each_step or (step % log_every == 0)
+            if should_log:
+                paths = batch.get("video_path", [])
+                path_str = "; ".join(str(p) for p in paths) if paths else ""
+                msg = (
+                    f"epoch {epoch}/{num_epochs} step {step + 1}/{num_batches} "
+                    f"loss {loss.item():.4f} | {path_str}"
+                )
+                if use_pbar:
+                    tqdm_auto.write(msg)
+                else:
+                    print(msg)
 
     return running / max(n, 1)
 
@@ -136,7 +179,7 @@ def main() -> None:
     num_epochs = int(cfg["training"]["num_epochs"])
 
     for epoch in range(1, num_epochs + 1):
-        avg_loss = train_one_epoch(model, loader, optimizer, device, cfg, epoch)
+        avg_loss = train_one_epoch(model, loader, optimizer, device, cfg, epoch, num_epochs)
         print(f"epoch {epoch} mean_loss {avg_loss:.4f}")
         save_checkpoint(
             ckpt_dir / f"epoch_{epoch:03d}.pt",

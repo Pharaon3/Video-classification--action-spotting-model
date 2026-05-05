@@ -61,7 +61,8 @@ training:
   num_epochs: 2
   num_workers: 2
   checkpoint_dir: checkpoints
-  # log_each_step: true -> print after every optimizer step (each batch).
+  progress_bar: true
+  # log_each_step: true -> log paths after every batch (uses tqdm.write when progress_bar is on).
   # If false, only log when step index is divisible by log_every (0-based).
   log_each_step: true
   log_every: 10
