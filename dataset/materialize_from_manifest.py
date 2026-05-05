@@ -4,12 +4,16 @@ Build SoccerClipDataset layout from train.json / valid.json manifests.
 Creates:
   videos/<stem>.mp4   (copy from manifest path if source exists under this folder)
   labels/<stem>.json  ({"events": [{"time_sec", "label"}, ...]})
-  train.txt / valid.txt  (basenames for train.py --split — only stems that have a video file)
+  train.txt / valid.txt  (basenames for train.py --split — only stems with a resolvable video)
+
+A video counts as present if either:
+  - dataset/videos/<stem>.<ext> exists, or
+  - the nested manifest file exists (e.g. dataset/clip_4/224p.mp4)
 
 Run:
   python dataset/materialize_from_manifest.py
 
-Rewrite split lists to match existing files only (no manifest read):
+Rewrite split lists to match resolvable videos only (no manifest read):
   python dataset/materialize_from_manifest.py --sync-splits
 """
 
@@ -23,25 +27,11 @@ from pathlib import Path
 
 FPS = 25
 HERE = Path(__file__).resolve().parent
+_ROOT = HERE.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
 
-_VIDEO_EXTS = (".mp4", ".avi", ".mkv", ".mov", ".webm")
-
-
-def stem_for_path(rel: str) -> str:
-    p = Path(rel.replace("\\", "/"))
-    parent = p.parent.as_posix().replace("/", "_") if p.parent.as_posix() not in (".", "") else ""
-    base = p.stem
-    if parent:
-        return f"{parent}_{base}"
-    return base
-
-
-def stem_has_video(stem: str, videos_dir: Path) -> bool:
-    """True if any supported video file exists for this stem (matches SoccerClipDataset lookup)."""
-    for ext in _VIDEO_EXTS:
-        if (videos_dir / f"{stem}{ext}").is_file():
-            return True
-    return False
+from utils.dataset_video import load_stem_to_relpath, resolve_clip_video_path, stem_for_manifest_rel
 
 
 def convert_manifest(manifest_path: Path) -> list[tuple[str, list[dict], str]]:
@@ -49,7 +39,7 @@ def convert_manifest(manifest_path: Path) -> list[tuple[str, list[dict], str]]:
     out: list[tuple[str, list[dict], str]] = []
     for item in data.get("videos", []):
         rel = str(item["path"]).replace("\\", "/")
-        stem = stem_for_path(rel)
+        stem = stem_for_manifest_rel(rel)
         events = []
         for ann in item.get("annotations", []):
             fr = int(ann["frame"])
@@ -64,7 +54,11 @@ def convert_manifest(manifest_path: Path) -> list[tuple[str, list[dict], str]]:
     return out
 
 
-def materialize(entries: list[tuple[str, list[dict], str]], stems_seen: set[str]) -> list[str]:
+def materialize(
+    entries: list[tuple[str, list[dict], str]],
+    stems_seen: set[str],
+    stem_rel_map: dict[str, str],
+) -> list[str]:
     videos = HERE / "videos"
     labels = HERE / "labels"
     videos.mkdir(parents=True, exist_ok=True)
@@ -82,7 +76,7 @@ def materialize(entries: list[tuple[str, list[dict], str]], stems_seen: set[str]
         dst = videos / f"{stem}.mp4"
         if src.is_file():
             shutil.copy2(src, dst)
-        if stem_has_video(stem, videos):
+        if resolve_clip_video_path(HERE, stem, videos, stem_rel_map) is not None:
             stems_out.append(stem)
         else:
             try:
@@ -90,23 +84,28 @@ def materialize(entries: list[tuple[str, list[dict], str]], stems_seen: set[str]
             except ValueError:
                 hint = src
             print(
-                f"materialize: omitted from split lists (no video under {videos}): stem={stem!r} "
-                f"(place {hint})",
+                f"materialize: omitted from split lists (no video): stem={stem!r} "
+                f"(add flat file under {videos} or nested file at {hint})",
                 file=sys.stderr,
             )
     return stems_out
 
 
 def sync_split_lists() -> None:
-    """Rewrite train.txt / valid.txt to only include stems that have a matching file in videos/."""
+    """Rewrite train.txt / valid.txt to only include stems with a resolvable video path."""
     videos = HERE / "videos"
     videos.mkdir(parents=True, exist_ok=True)
+    stem_rel_map = load_stem_to_relpath(HERE)
     for name in ("train.txt", "valid.txt"):
         path = HERE / name
         if not path.is_file():
             continue
         stems = [s.strip() for s in path.read_text(encoding="utf-8").splitlines() if s.strip()]
-        kept = [s for s in stems if stem_has_video(s, videos)]
+        kept = [
+            s
+            for s in stems
+            if resolve_clip_video_path(HERE, s, videos, stem_rel_map) is not None
+        ]
         removed = len(stems) - len(kept)
         path.write_text("\n".join(kept) + ("\n" if kept else ""), encoding="utf-8")
         print(f"{name}: kept {len(kept)} / {len(stems)} stems ({removed} removed without a video file).")
@@ -117,7 +116,7 @@ def main() -> None:
     parser.add_argument(
         "--sync-splits",
         action="store_true",
-        help="Only rewrite train.txt and valid.txt: keep stems that have a file under videos/.",
+        help="Only rewrite train.txt and valid.txt: keep stems with a resolvable video path.",
     )
     args = parser.parse_args()
 
@@ -131,21 +130,30 @@ def main() -> None:
         print("Missing train.json", file=sys.stderr)
         sys.exit(1)
 
+    stem_rel_map = load_stem_to_relpath(HERE)
     seen: set[str] = set()
-    train_stems = materialize(convert_manifest(train_path), seen)
-    valid_stems = materialize(convert_manifest(valid_path), seen) if valid_path.is_file() else []
+    train_stems = materialize(convert_manifest(train_path), seen, stem_rel_map)
+    valid_stems = (
+        materialize(convert_manifest(valid_path), seen, stem_rel_map) if valid_path.is_file() else []
+    )
 
     (HERE / "train.txt").write_text("\n".join(train_stems) + ("\n" if train_stems else ""), encoding="utf-8")
     if valid_stems:
         (HERE / "valid.txt").write_text("\n".join(valid_stems) + "\n", encoding="utf-8")
 
-    n_vid = len(list((HERE / "videos").glob("*.mp4")))
+    n_flat = len(list((HERE / "videos").glob("*.mp4")))
+    n_nested = sum(
+        1
+        for rel in stem_rel_map.values()
+        if (HERE / str(rel).replace("\\", "/")).is_file()
+    )
     n_lbl = len(list((HERE / "labels").glob("*.json")))
     print(f"Labels: {n_lbl} files.")
-    print(f"Videos: {n_vid} .mp4 (place clip_*/224p.mp4 under dataset/ then re-run to copy).")
-    print(f"train.txt entries with a video file: {len(train_stems)}.")
+    print(f"Videos (flat under videos/): {n_flat} .mp4")
+    print(f"Videos (nested manifest paths on disk): {n_nested} files.")
+    print(f"train.txt entries with a resolvable video: {len(train_stems)}.")
     if valid_path.is_file():
-        print(f"valid.txt entries with a video file: {len(valid_stems)}.")
+        print(f"valid.txt entries with a resolvable video: {len(valid_stems)}.")
 
 
 if __name__ == "__main__":

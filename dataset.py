@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 import torch
 from torch.utils.data import Dataset
 
+from utils.dataset_video import load_stem_to_relpath, resolve_clip_video_path
 from utils.labels import build_class_to_idx, events_to_frame_labels, load_events_json
 from utils.video import VideoPreprocessConfig, preprocess_clip_to_tensor
 
@@ -50,6 +51,8 @@ class SoccerClipDataset(Dataset):
             backend=video_backend,  # type: ignore[arg-type]
         )
 
+        self._stem_to_rel = load_stem_to_relpath(self.root)
+
         if split:
             split_file = self.root / split
             stems = [s.strip() for s in split_file.read_text(encoding="utf-8").splitlines() if s.strip()]
@@ -60,26 +63,43 @@ class SoccerClipDataset(Dataset):
                 p for p in self.video_dir.iterdir() if p.suffix.lower() in exts
             )
             self.items = []
+            seen_video_paths: set[str] = set()
             for vp in vids:
                 lp = self.labels_dir / f"{vp.stem}.json"
                 if lp.is_file():
                     self.items.append((vp, lp))
+                    seen_video_paths.add(str(vp.resolve()))
                 else:
                     # Skip silently or warn — training usually needs labels
                     continue
+            # Also pick up nested manifest paths (e.g. clip_4/224p.mp4) when not copied to videos/
+            for stem in self._stem_to_rel:
+                vp = resolve_clip_video_path(self.root, stem, self.video_dir, self._stem_to_rel)
+                if vp is None:
+                    continue
+                key = str(vp.resolve())
+                if key in seen_video_paths:
+                    continue
+                lp = self.labels_dir / f"{stem}.json"
+                if lp.is_file():
+                    seen_video_paths.add(key)
+                    self.items.append((vp, lp))
 
         if not self.items:
             raise RuntimeError(f"No video/label pairs found under {self.root}")
 
     def _resolve_item(self, stem: str) -> tuple[Path, Path]:
-        for ext in (".mp4", ".avi", ".mkv", ".mov", ".webm"):
-            vp = self.video_dir / f"{stem}{ext}"
-            if vp.is_file():
-                lp = self.labels_dir / f"{stem}.json"
-                if not lp.is_file():
-                    raise FileNotFoundError(f"Missing label JSON for stem '{stem}': {lp}")
-                return vp, lp
-        raise FileNotFoundError(f"No video for stem '{stem}' in {self.video_dir}")
+        lp = self.labels_dir / f"{stem}.json"
+        if not lp.is_file():
+            raise FileNotFoundError(f"Missing label JSON for stem '{stem}': {lp}")
+        vp = resolve_clip_video_path(self.root, stem, self.video_dir, self._stem_to_rel)
+        if vp is None:
+            rel = self._stem_to_rel.get(stem)
+            hint = f" or manifest path {self.root / rel}" if rel else ""
+            raise FileNotFoundError(
+                f"No video for stem '{stem}' under {self.video_dir}{hint}"
+            )
+        return vp, lp
 
     def __len__(self) -> int:
         return len(self.items)
