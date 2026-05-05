@@ -1,0 +1,76 @@
+{
+  "events": [
+    {
+      "time_sec": 3.33,
+      "label": "pass"
+    },
+    {
+      "time_sec": 5.47,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 8.43,
+      "label": "pass"
+    },
+    {
+      "time_sec": 10.5,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 11.3,
+      "label": "pass"
+    },
+    {
+      "time_sec": 12.13,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 12.2,
+      "label": "pass"
+    },
+    {
+      "time_sec": 13.27,
+      "label": "interception"
+    },
+    {
+      "time_sec": 13.3,
+      "label": "pass"
+    },
+    {
+      "time_sec": 14.77,
+      "label": "interception"
+    },
+    {
+      "time_sec": 14.8,
+      "label": "pass"
+    },
+    {
+      "time_sec": 16.0,
+      "label": "pass_received"
+    },
+    {
+      "time_sec": 19.4,
+      "label": "shot"
+    },
+    {
+      "time_sec": 20.67,
+      "label": "save"
+    },
+    {
+      "time_sec": 22.1,
+      "label": "recovery"
+    },
+    {
+      "time_sec": 22.13,
+      "label": "shot"
+    },
+    {
+      "time_sec": 22.9,
+      "label": "goal"
+    },
+    {
+      "time_sec": 22.9,
+      "label": "goal_conceded"
+    }
+  ]
+}

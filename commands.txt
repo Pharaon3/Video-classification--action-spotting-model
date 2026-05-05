@@ -1,2 +1,10 @@
 ==============Train =======================
-python train.py --data_root dataset --split train.txt
+CUDA_VISIBLE_DEVICES=0 python3 train.py --data_root dataset --split train.txt
+
+
+
+=============Infer=====================
+CUDA_VISIBLE_DEVICES=0 python3 infer.py \
+--video "./dataset/videos/clip_98/224p.mp4" \
+--checkpoint "./checkpoints/last.pt" \
+--output "./predictions.json"

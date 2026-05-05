@@ -26,7 +26,7 @@ class_names:
 # multi_label: true -> sigmoid + BCE; false -> softmax + cross-entropy per frame
 multi_label: true
 activation: sigmoid
-threshold: 0.5
+threshold: 0.1
 min_event_gap_sec: 1.0
 
 # Half-width in frames when stamping labels around each annotated event time
