@@ -62,6 +62,8 @@ def _build_pos_weight_tensor(
     split: Optional[str],
     loss_cfg: Dict[str, Any],
     multi_label: bool,
+    video_dir: str,
+    labels_dir: str,
 ) -> Optional[torch.Tensor]:
     if not multi_label:
         if bool(loss_cfg.get("use_pos_weight", False)):
@@ -89,7 +91,14 @@ def _build_pos_weight_tensor(
     if str(loss_cfg.get("pos_weight_mode", "auto")) != "auto":
         raise ValueError(f"Unknown pos_weight_mode: {loss_cfg.get('pos_weight_mode')!r}")
 
-    arr = compute_auto_pos_weight_numpy(cfg, data_root, split, clip_max=clip_max)
+    arr = compute_auto_pos_weight_numpy(
+        cfg,
+        data_root,
+        split,
+        clip_max=clip_max,
+        video_dir=video_dir,
+        labels_dir=labels_dir,
+    )
     return torch.from_numpy(arr)
 
 
@@ -187,8 +196,25 @@ def train_one_epoch(
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", type=str, default=str(_PKG / "config.yaml"))
-    parser.add_argument("--data_root", type=str, required=True, help="Folder with videos/ and labels/")
+    parser.add_argument(
+        "--data_root",
+        type=str,
+        required=True,
+        help="Dataset root (contains video_dir and labels_dir subfolders, or use same dir for both e.g. examples/)",
+    )
     parser.add_argument("--split", type=str, default=None, help="Optional split list file under data_root")
+    parser.add_argument(
+        "--video_dir",
+        type=str,
+        default="videos",
+        help="Subfolder of data_root with clip videos (use 'examples' for dataset/examples layout)",
+    )
+    parser.add_argument(
+        "--labels_dir",
+        type=str,
+        default="labels",
+        help="Subfolder of data_root with per-clip label JSON (same as video_dir when JSON sits next to mp4)",
+    )
     args = parser.parse_args()
 
     cfg_path = Path(args.config)
@@ -204,6 +230,8 @@ def main() -> None:
         args.data_root,
         cfg,
         split=args.split,
+        video_dir=args.video_dir,
+        labels_dir=args.labels_dir,
         video_backend=backend,
     )
     loader = DataLoader(
@@ -217,7 +245,15 @@ def main() -> None:
 
     multi_label = bool(cfg.get("multi_label", True))
     loss_cfg = cfg.get("loss") or {}
-    pos_weight_cpu = _build_pos_weight_tensor(cfg, args.data_root, args.split, loss_cfg, multi_label)
+    pos_weight_cpu = _build_pos_weight_tensor(
+        cfg,
+        args.data_root,
+        args.split,
+        loss_cfg,
+        multi_label,
+        video_dir=args.video_dir,
+        labels_dir=args.labels_dir,
+    )
     if pos_weight_cpu is not None:
         _print_pos_weight_table(list(cfg["class_names"]), pos_weight_cpu)
 

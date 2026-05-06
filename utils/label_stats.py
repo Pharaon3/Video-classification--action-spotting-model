@@ -91,9 +91,13 @@ def compute_auto_pos_weight_numpy(
     data_root: str | Path,
     split: str | None,
     clip_max: float,
+    video_dir: str = "videos",
+    labels_dir: str = "labels",
 ) -> np.ndarray:
     """pos_weight[c] = neg[c] / max(pos[c], 1), then clipped to clip_max."""
-    pos, neg, _, _ = aggregate_frame_counts_from_json(cfg, data_root, split)
+    pos, neg, _, _ = aggregate_frame_counts_from_json(
+        cfg, data_root, split, video_dir=video_dir, labels_dir=labels_dir
+    )
     w = neg / np.maximum(pos, 1.0)
     w = np.minimum(w, float(clip_max))
     return w.astype(np.float32)
