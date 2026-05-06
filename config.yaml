@@ -30,7 +30,7 @@ threshold: 0.5
 min_event_gap_sec: 1.0
 
 # Half-width in frames when stamping labels around each annotated event time
-label_radius_frames: 2
+label_radius_frames: 10
 
 freeze_feature_extractor: true
 # Relative paths resolve from the soccer_event_model/ directory (where train.py lives).
@@ -58,7 +58,7 @@ training:
   batch_size: 1
   learning_rate: 0.0005
   weight_decay: 0.00005
-  num_epochs: 2
+  num_epochs: 200
   num_workers: 0
   checkpoint_dir: checkpoints
   progress_bar: true
