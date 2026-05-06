@@ -2,8 +2,8 @@
 Run event detection on a single video clip and write JSON predictions.
 
 Config: weights and architecture come from the checkpoint. If --config is
-omitted, threshold / activation / multi_label / min_event_gap_sec are merged
-from ./config.yaml when present so tuning edits apply without retraining.
+omitted, threshold / activation / multi_label / min_event_gap_sec / postprocess
+are merged from ./config.yaml when present so tuning edits apply without retraining.
 """
 
 from __future__ import annotations
@@ -23,7 +23,7 @@ if str(_PKG) not in sys.path:
     sys.path.insert(0, str(_PKG))
 
 from models.event_model import build_event_model
-from postprocess import PostprocessConfig, logits_to_probs, postprocess_clip
+from postprocess import logits_to_probs, postprocess_clip, postprocess_config_from_cfg
 from utils.checkpoint import load_checkpoint
 from utils.video import VideoPreprocessConfig, preprocess_clip_to_tensor
 
@@ -58,7 +58,7 @@ def main() -> None:
         disk_cfg = _PKG / "config.yaml"
         if disk_cfg.is_file():
             disk = load_yaml(disk_cfg)
-            for key in ("threshold", "min_event_gap_sec", "activation", "multi_label"):
+            for key in ("threshold", "min_event_gap_sec", "activation", "multi_label", "postprocess"):
                 if key in disk:
                     cfg[key] = disk[key]
 
@@ -84,20 +84,27 @@ def main() -> None:
         logits = model(clip)  # [1,T,C]
 
     activation = str(cfg.get("activation", "sigmoid"))
-    threshold = float(cfg.get("threshold", 0.5))
-    pp_cfg = PostprocessConfig(
-        fps=float(cfg["fps"]),
-        activation=activation,  # type: ignore[arg-type]
-        threshold=threshold,
-        min_event_gap_sec=float(cfg.get("min_event_gap_sec", 1.0)),
-        class_names=list(cfg["class_names"]),
-        multi_label=bool(cfg.get("multi_label", True)),
-    )
-    print(
-        f"Inference postprocess: activation={activation} multi_label={pp_cfg.multi_label} "
-        f"threshold={threshold} min_event_gap_sec={pp_cfg.min_event_gap_sec}",
-        file=sys.stderr,
-    )
+    pp_cfg = postprocess_config_from_cfg(cfg)
+    ml = pp_cfg.multilabel
+    if ml is not None:
+        th_min = min(ml.thresholds)
+        th_max = max(ml.thresholds)
+        gaps_sec = [mf / ml.fps for mf in ml.min_gap_frames]
+        print(
+            f"Inference postprocess: activation={activation} multi_label=True "
+            f"smoothing={ml.smoothing_enabled} window={ml.smoothing_window_frames} "
+            f"peak_picking={ml.peak_picking_enabled} "
+            f"thresholds_per_class min={th_min:.3f} max={th_max:.3f} ({len(ml.class_names)} classes) "
+            f"min_gap_sec min={min(gaps_sec):.2f} max={max(gaps_sec):.2f} "
+            f"top_k_per_class={ml.top_k_per_class} top_k_total={ml.top_k_total}",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"Inference postprocess: activation={activation} multi_label=False "
+            f"threshold={pp_cfg.threshold} min_event_gap_sec={pp_cfg.min_event_gap_sec}",
+            file=sys.stderr,
+        )
     events = postprocess_clip(logits, pp_cfg)
     if not events:
         probs = logits_to_probs(logits, activation)
@@ -106,8 +113,9 @@ def main() -> None:
         n_nan = int(np.size(arr) - np.sum(finite))
         if np.any(finite):
             arr_f = arr[finite]
+            th_ref = pp_cfg.threshold if ml is None else float(min(ml.thresholds))
             print(
-                f"No events above threshold={threshold}. "
+                f"No events above min per-class threshold (min={th_ref:.4f}). "
                 f"sigmoid(prob) min={float(arr_f.min()):.6f} max={float(arr_f.max()):.6f} "
                 f"(finite values); NaN count={n_nan}",
                 file=sys.stderr,

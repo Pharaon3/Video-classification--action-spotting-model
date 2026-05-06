@@ -26,11 +26,69 @@ class_names:
 # multi_label: true -> sigmoid + BCE; false -> softmax + cross-entropy per frame
 multi_label: true
 activation: sigmoid
+
+# Legacy global postprocess (used when postprocess.* keys are omitted).
 threshold: 0.5
 min_event_gap_sec: 1.0
 
-# Half-width in frames when stamping labels around each annotated event time
-label_radius_frames: 10
+# Optional nested postprocess (per-class thresholds, gaps, smoothing, peaks).
+# See README for format. When present with any of these keys, overrides legacy
+# threshold/min_event_gap_sec for multi-label inference (train.py ignores this block).
+postprocess:
+  smoothing:
+    enabled: true
+    window_frames: 5
+  peak_picking:
+    enabled: true
+  thresholds:
+    default: 0.5
+    pass: 0.45
+    pass_received: 0.45
+    shot: 0.25
+    goal: 0.2
+    tackle: 0.35
+    ball_out_of_play: 0.4
+    aerial_duel: 0.4
+  min_gap_sec:
+    default: 1.0
+    pass: 1.0
+    shot: 2.0
+    goal: 5.0
+    tackle: 1.2
+  top_k_per_class: null
+  top_k_total: null
+
+# Half-width in frames when stamping positives around each annotated event time.
+# int -> same radius for every class (backward compatible).
+# dict -> per-class override with required "default" (see README).
+label_radius_frames:
+  default: 10
+  pass: 8
+  pass_received: 8
+  recovery: 10
+  tackle: 12
+  interception: 10
+  ball_out_of_play: 20
+  clearance: 10
+  take_on: 10
+  substitution: 12
+  block: 10
+  aerial_duel: 15
+  shot: 10
+  save: 10
+  foul: 12
+  goal: 15
+
+# strict_labels true -> unknown JSON class names raise ValueError during training.
+# false -> warn once per label file and skip those events.
+strict_labels: true
+
+loss:
+  type: bce
+  use_pos_weight: true
+  pos_weight_mode: auto
+  pos_weight_clip_max: 20.0
+  manual_pos_weight: null
 
 freeze_feature_extractor: true
 # Relative paths resolve from the soccer_event_model/ directory (where train.py lives).
@@ -58,7 +116,7 @@ training:
   batch_size: 1
   learning_rate: 0.0005
   weight_decay: 0.00005
-  num_epochs: 200
+  num_epochs: 50
   num_workers: 0
   checkpoint_dir: checkpoints
   progress_bar: true

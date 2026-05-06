@@ -19,7 +19,7 @@ import argparse
 import sys
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 import torch
 import torch.nn.functional as F
@@ -40,7 +40,8 @@ if str(_PKG) not in sys.path:
 
 from dataset import SoccerClipDataset
 from models.event_model import build_event_model
-from utils.checkpoint import save_checkpoint
+from utils.checkpoint import prune_epoch_checkpoints, save_checkpoint
+from utils.label_stats import compute_auto_pos_weight_numpy
 
 
 def load_yaml(path: Path) -> Dict[str, Any]:
@@ -55,6 +56,49 @@ def collate_batch(batch: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {"video": videos, "labels": labels, "video_path": paths}
 
 
+def _build_pos_weight_tensor(
+    cfg: Dict[str, Any],
+    data_root: str,
+    split: Optional[str],
+    loss_cfg: Dict[str, Any],
+    multi_label: bool,
+) -> Optional[torch.Tensor]:
+    if not multi_label:
+        if bool(loss_cfg.get("use_pos_weight", False)):
+            print(
+                "loss.use_pos_weight is ignored when multi_label is false (cross-entropy).",
+                file=sys.stderr,
+            )
+        return None
+    if str(loss_cfg.get("type", "bce")) != "bce":
+        return None
+    if not bool(loss_cfg.get("use_pos_weight", False)):
+        return None
+
+    clip_max = float(loss_cfg.get("pos_weight_clip_max", 20.0))
+    manual = loss_cfg.get("manual_pos_weight")
+    num_classes = int(cfg["num_classes"])
+    if manual is not None:
+        lst = list(manual)
+        if len(lst) != num_classes:
+            raise ValueError(
+                f"manual_pos_weight must have length num_classes={num_classes}, got {len(lst)}"
+            )
+        return torch.tensor(lst, dtype=torch.float32)
+
+    if str(loss_cfg.get("pos_weight_mode", "auto")) != "auto":
+        raise ValueError(f"Unknown pos_weight_mode: {loss_cfg.get('pos_weight_mode')!r}")
+
+    arr = compute_auto_pos_weight_numpy(cfg, data_root, split, clip_max=clip_max)
+    return torch.from_numpy(arr)
+
+
+def _print_pos_weight_table(class_names: List[str], w: torch.Tensor) -> None:
+    print("Per-class BCE pos_weight (on device at train time):")
+    for i, name in enumerate(class_names):
+        print(f"  {name:20s}  {float(w[i].item()):.6f}")
+
+
 def train_one_epoch(
     model,
     loader: DataLoader,
@@ -63,6 +107,7 @@ def train_one_epoch(
     cfg: Dict[str, Any],
     epoch: int,
     num_epochs: int,
+    pos_weight: Optional[torch.Tensor],
 ) -> float:
     global _TQDM_MISSING_NOTIFIED
     model.train()
@@ -107,7 +152,11 @@ def train_one_epoch(
             logits = model(x)  # [B,T,C]
 
             if multi_label:
-                loss = F.binary_cross_entropy_with_logits(logits, y)
+                if pos_weight is not None:
+                    pw = pos_weight.to(device=device, dtype=logits.dtype)
+                    loss = F.binary_cross_entropy_with_logits(logits, y, pos_weight=pw)
+                else:
+                    loss = F.binary_cross_entropy_with_logits(logits, y)
             else:
                 loss = F.cross_entropy(logits.view(-1, logits.size(-1)), y.view(-1))
 
@@ -145,6 +194,7 @@ def main() -> None:
     cfg_path = Path(args.config)
     cfg = load_yaml(cfg_path)
     cfg.setdefault("training", {})
+    cfg.setdefault("loss", {})
 
     device_str = str(cfg["training"].get("device", "cuda"))
     device = torch.device(device_str if torch.cuda.is_available() else "cpu")
@@ -165,6 +215,12 @@ def main() -> None:
         pin_memory=device.type == "cuda",
     )
 
+    multi_label = bool(cfg.get("multi_label", True))
+    loss_cfg = cfg.get("loss") or {}
+    pos_weight_cpu = _build_pos_weight_tensor(cfg, args.data_root, args.split, loss_cfg, multi_label)
+    if pos_weight_cpu is not None:
+        _print_pos_weight_table(list(cfg["class_names"]), pos_weight_cpu)
+
     model = build_event_model(cfg).to(device)
 
     params = [p for p in model.parameters() if p.requires_grad]
@@ -179,7 +235,16 @@ def main() -> None:
     num_epochs = int(cfg["training"]["num_epochs"])
 
     for epoch in range(1, num_epochs + 1):
-        avg_loss = train_one_epoch(model, loader, optimizer, device, cfg, epoch, num_epochs)
+        avg_loss = train_one_epoch(
+            model,
+            loader,
+            optimizer,
+            device,
+            cfg,
+            epoch,
+            num_epochs,
+            pos_weight_cpu,
+        )
         print(f"epoch {epoch} mean_loss {avg_loss:.4f}")
         save_checkpoint(
             ckpt_dir / f"epoch_{epoch:03d}.pt",
@@ -188,6 +253,8 @@ def main() -> None:
             epoch=epoch,
             config=cfg,
         )
+        # Keep at most 2 rolling epoch_*.pt files; last.pt is written once at the end (3 files total).
+        prune_epoch_checkpoints(ckpt_dir, keep=2)
 
     save_checkpoint(
         ckpt_dir / "last.pt",
