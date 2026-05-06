@@ -120,7 +120,7 @@ def events_to_frame_labels(
     label_source: str | Path | None = None,
 ) -> torch.Tensor:
     """
-    Build dense frame labels of shape [T, C] (multi-label float 0/1) or [T] long (multi-class).
+    Build dense frame labels of shape [T, C] (multi-label float soft targets) or [T] long (multi-class).
 
     ``radius_frames`` is either a global int or a per-class dict (see ``parse_label_radius_frames``).
 
@@ -130,7 +130,8 @@ def events_to_frame_labels(
     - If False: emits a ``UserWarning`` per distinct unknown name (includes path/stem) and
       skips those events (they are not stamped into the tensor).
 
-    multi_label True: returns float tensor [T, num_classes]
+    multi_label True: returns float tensor [T, num_classes] with triangular soft targets
+        around each event (peak 1.0 at center, linear falloff to 0 at ±radius).
     multi_class: returns long tensor [T] with values in [0, num_classes] where index 0
         is reserved for background if "background" is in class_to_idx; otherwise uses 0
         as background only where no event spans a frame (see below).
@@ -176,7 +177,10 @@ def events_to_frame_labels(
             center = int(round(t_sec * fps))
             lo = max(0, center - r)
             hi = min(num_frames - 1, center + r)
-            y[lo : hi + 1, c] = 1.0
+            denom = max(r, 1)
+            idx = torch.arange(lo, hi + 1, dtype=torch.float32)
+            tri = torch.clamp(1.0 - (idx - float(center)).abs() / float(denom), min=0.0)
+            y[lo : hi + 1, c] = torch.maximum(y[lo : hi + 1, c], tri)
         return y
 
     if "background" in class_to_idx:
