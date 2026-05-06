@@ -17,8 +17,16 @@
       "label": "pass"
     },
     {
+      "time_sec": 15.28,
+      "label": "pass_received"
+    },
+    {
       "time_sec": 15.32,
       "label": "pass"
+    },
+    {
+      "time_sec": 16.44,
+      "label": "pass_received"
     },
     {
       "time_sec": 16.48,
@@ -27,6 +35,14 @@
     {
       "time_sec": 17.6,
       "label": "block"
+    },
+    {
+      "time_sec": 17.6,
+      "label": "clearance"
+    },
+    {
+      "time_sec": 21.48,
+      "label": "recovery"
     },
     {
       "time_sec": 21.48,

@@ -9,8 +9,16 @@
       "label": "pass"
     },
     {
+      "time_sec": 2.56,
+      "label": "pass_received"
+    },
+    {
       "time_sec": 2.6,
       "label": "pass"
+    },
+    {
+      "time_sec": 4.4,
+      "label": "pass_received"
     },
     {
       "time_sec": 4.44,
@@ -25,6 +33,10 @@
       "label": "pass"
     },
     {
+      "time_sec": 9.92,
+      "label": "pass_received"
+    },
+    {
       "time_sec": 9.96,
       "label": "pass"
     },
@@ -33,16 +45,28 @@
       "label": "aerial_duel"
     },
     {
-      "time_sec": 17.44,
-      "label": "aerial_duel"
+      "time_sec": 14.28,
+      "label": "pass"
     },
     {
       "time_sec": 17.44,
       "label": "aerial_duel"
+    },
+    {
+      "time_sec": 17.48,
+      "label": "pass"
+    },
+    {
+      "time_sec": 17.44,
+      "label": "aerial_duel"
+    },
+    {
+      "time_sec": 17.48,
+      "label": "pass"
     },
     {
       "time_sec": 18.88,
-      "label": "recovery"
+      "label": "pass_received"
     },
     {
       "time_sec": 19.36,
@@ -54,15 +78,19 @@
     },
     {
       "time_sec": 25.4,
-      "label": "recovery"
+      "label": "tackle"
     },
     {
       "time_sec": 26.96,
-      "label": "pass_received"
+      "label": "tackle"
+    },
+    {
+      "time_sec": 27.0,
+      "label": "pass"
     },
     {
       "time_sec": 27.4,
-      "label": "recovery"
+      "label": "pass_received"
     },
     {
       "time_sec": 29.4,

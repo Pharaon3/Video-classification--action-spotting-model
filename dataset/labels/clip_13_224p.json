@@ -41,12 +41,16 @@
       "label": "aerial_duel"
     },
     {
+      "time_sec": 16.4,
+      "label": "pass"
+    },
+    {
       "time_sec": 17.24,
       "label": "pass_received"
     },
     {
       "time_sec": 18.28,
-      "label": "interception"
+      "label": "tackle"
     },
     {
       "time_sec": 19.72,

@@ -38,7 +38,7 @@
     },
     {
       "time_sec": 14.52,
-      "label": "pass_received"
+      "label": "recovery"
     },
     {
       "time_sec": 15.56,
@@ -62,7 +62,7 @@
     },
     {
       "time_sec": 25.4,
-      "label": "recovery"
+      "label": "interception"
     },
     {
       "time_sec": 28.08,

@@ -5,8 +5,12 @@
       "label": "aerial_duel"
     },
     {
+      "time_sec": 0.56,
+      "label": "pass"
+    },
+    {
       "time_sec": 2.08,
-      "label": "recovery"
+      "label": "interception"
     },
     {
       "time_sec": 3.12,
@@ -17,12 +21,20 @@
       "label": "recovery"
     },
     {
+      "time_sec": 7.0,
+      "label": "tackle"
+    },
+    {
       "time_sec": 10.36,
       "label": "pass"
     },
     {
       "time_sec": 10.68,
       "label": "block"
+    },
+    {
+      "time_sec": 12.76,
+      "label": "recovery"
     },
     {
       "time_sec": 12.76,
@@ -53,12 +65,16 @@
       "label": "pass"
     },
     {
+      "time_sec": 23.44,
+      "label": "pass_received"
+    },
+    {
       "time_sec": 23.48,
       "label": "shot"
     },
     {
       "time_sec": 24.64,
-      "label": "block"
+      "label": "save"
     },
     {
       "time_sec": 26.04,
