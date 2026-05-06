@@ -120,7 +120,7 @@ training:
   batch_size: 1
   learning_rate: 0.0005
   weight_decay: 0.00005
-  num_epochs: 50
+  num_epochs: 10
   num_workers: 0
   checkpoint_dir: checkpoints
   progress_bar: true
