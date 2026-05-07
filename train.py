@@ -11,6 +11,12 @@ after every batch. Set log_each_step: false and tune log_every for sparser logs.
 
 Progress: training.progress_bar (default true) shows a tqdm bar per epoch
 (requires `pip install tqdm`, listed in requirements.txt).
+
+Resume: pass ``--resume path/to.pt`` (e.g. ``checkpoints/last.pt``) to load
+``model_state_dict`` and, if compatible, ``optimizer_state_dict``. Training
+runs epochs ``(checkpoint_epoch + 1) .. training.num_epochs`` using the
+current ``--config`` (learning rate, data paths, etc.); only weights and
+optimizer buffers are restored from the file.
 """
 
 from __future__ import annotations
@@ -40,7 +46,7 @@ if str(_PKG) not in sys.path:
 
 from dataset import SoccerClipDataset
 from models.event_model import build_event_model
-from utils.checkpoint import prune_epoch_checkpoints, save_checkpoint
+from utils.checkpoint import load_checkpoint, prune_epoch_checkpoints, save_checkpoint
 from utils.label_stats import compute_auto_pos_weight_numpy
 
 
@@ -215,6 +221,12 @@ def main() -> None:
         default="labels",
         help="Subfolder of data_root with per-clip label JSON (same as video_dir when JSON sits next to mp4)",
     )
+    parser.add_argument(
+        "--resume",
+        type=str,
+        default=None,
+        help="Checkpoint .pt to continue training (loads weights; restores AdamW state if shapes match)",
+    )
     args = parser.parse_args()
 
     cfg_path = Path(args.config)
@@ -270,7 +282,38 @@ def main() -> None:
     ckpt_dir.mkdir(parents=True, exist_ok=True)
     num_epochs = int(cfg["training"]["num_epochs"])
 
-    for epoch in range(1, num_epochs + 1):
+    start_epoch = 1
+    if args.resume:
+        rpath = Path(args.resume)
+        if not rpath.is_file():
+            raise FileNotFoundError(f"--resume checkpoint not found: {rpath}")
+        ckpt = load_checkpoint(rpath, map_location=device)
+        model.load_state_dict(ckpt["model_state_dict"], strict=True)
+        od = ckpt.get("optimizer_state_dict")
+        if od is not None:
+            try:
+                optimizer.load_state_dict(od)
+            except (ValueError, KeyError, RuntimeError) as exc:
+                print(
+                    f"Warning: could not load optimizer state from {rpath} ({exc!r}); "
+                    "continuing with a fresh optimizer (new AdamW moments).",
+                    file=sys.stderr,
+                )
+        start_epoch = int(ckpt.get("epoch", 0)) + 1
+        print(
+            f"Resumed from {rpath.resolve()} after epoch {start_epoch - 1}; "
+            f"training epochs {start_epoch}..{num_epochs} (num_epochs is the final epoch index)."
+        )
+
+    if start_epoch > num_epochs:
+        print(
+            f"Nothing to train: resume starts at epoch {start_epoch} but training.num_epochs is {num_epochs}. "
+            "Increase num_epochs in config or use an earlier checkpoint.",
+            file=sys.stderr,
+        )
+        return
+
+    for epoch in range(start_epoch, num_epochs + 1):
         avg_loss = train_one_epoch(
             model,
             loader,

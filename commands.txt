@@ -2,12 +2,14 @@
 CUDA_VISIBLE_DEVICES=0 python3 train.py --data_root dataset --split train.txt
 
 # Three demo clips: paired mp4 + json under dataset/examples/
-python train.py --data_root dataset --video_dir examples --labels_dir examples
+CUDA_VISIBLE_DEVICES=0 python3 train.py --data_root dataset --video_dir examples --labels_dir examples
 
+# Continue training (epochs saved_epoch+1 .. num_epochs in config.yaml)
+CUDA_VISIBLE_DEVICES=0 python3 train.py --data_root dataset --split train.txt --resume checkpoints/last.pt
 
 
 =============Infer=====================
 CUDA_VISIBLE_DEVICES=0 python3 infer.py \
---video "./dataset/videos/clip_4/224p.mp4" \
+--video "./dataset/examples/71378fbd4d6541859bb9f2b95c1473.mp4" \
 --checkpoint "./checkpoints/last.pt" \
 --output "./predictions.json"
